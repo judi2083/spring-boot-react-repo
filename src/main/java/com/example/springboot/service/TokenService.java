@@ -12,21 +12,12 @@ import java.security.KeyFactory;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Base64;
 import java.util.Date;
+import java.util.List;
 
 @Service
 public class TokenService {
 
     private final PrivateKey privateKey;
-
-    // public TokenService() throws Exception {
-    //     String keyContent = new String(Files.readAllBytes(Paths.get("src/main/resources/private.key")))
-    //             .replaceAll("-----BEGIN PRIVATE KEY-----", "")
-    //             .replaceAll("-----END PRIVATE KEY-----", "")
-    //             .replaceAll("\\s", "");
-    //     byte[] keyBytes = Base64.getDecoder().decode(keyContent);
-    //     PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
-    //     this.privateKey = KeyFactory.getInstance("RSA").generatePrivate(spec);
-    // }
 
     public TokenService() throws Exception {
         try (InputStream is = getClass().getClassLoader().getResourceAsStream("private.key")) {
@@ -46,10 +37,12 @@ public class TokenService {
 
 
     public String generateToken(String username, String role) {
+        System.out.println("generateToken is calling ...");
         long expirationMillis = 1000 * 60 * 60; // 1 hour
         return Jwts.builder()
                 .setSubject(username)
-                .claim("role", role)
+                //.claim("role", role)
+                .claim("roles", List.of(role))  // ✅ Use list, not plain string
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expirationMillis))
                 .signWith(privateKey, SignatureAlgorithm.RS256)

@@ -57,15 +57,17 @@ package com.example.springboot.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.io.InputStream;
@@ -74,88 +76,51 @@ import java.security.interfaces.RSAPublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import org.springframework.security.config.Customizer;
-
 import org.springframework.security.authentication.AuthenticationManager;
-
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
-
 
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
-
-    // @Bean
-    // public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    //     http
-    //         .csrf(csrf -> csrf.disable())
-    //         .authorizeHttpRequests(auth -> auth
-    //             // 🔓 Public endpoints
-    //            // .requestMatchers("/auth/token").permitAll()
-    //             // 🔓 Public endpoints
-    //             .requestMatchers(
-    //                 "/",
-    //                 "/login",
-    //                 "/index.html",
-    //                 "/favicon.ico",
-    //                 "/manifest.json",
-    //                 "/logo192.png",
-    //                 "/logo512.png",
-    //                 "/static/**",
-    //                 "/robots.txt"
-    //             ).permitAll()
-    //             .requestMatchers("/auth/token").permitAll()
-    //             .requestMatchers(HttpMethod.GET, "/api","/api/","/").permitAll()
-    //             .requestMatchers(HttpMethod.GET, "/employees/**").permitAll()
-    //             .requestMatchers(HttpMethod.GET, "/api/actuator/**","/actuator/**").permitAll()
-    //             .requestMatchers("/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
-
-    //             // 🔐 Secure everything else
-    //             .anyRequest().authenticated()
-    //         )
-    //         // 🔐 Use JWT authentication
-    //         .oauth2ResourceServer(oauth2 -> oauth2
-    //             .jwt(Customizer.withDefaults())
-    //         );
-
-    //     return http.build();
-    // }
-
-    // @Bean
-    // public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    //     http
-    //         .csrf(csrf -> csrf.disable())
-    //         .authorizeHttpRequests(auth -> auth
-    //             .requestMatchers("/auth/token", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
-    //             .anyRequest().authenticated()
-    //         )
-    //         .formLogin(Customizer.withDefaults()); // 👈 enables /login form
-
-    //     return http.build();
-    // }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/token").permitAll()
+                 // 👇 Allow public frontend assets
+                .requestMatchers(
+                    "/",
+                    "/index.html",
+                    "/manifest.json",
+                    "/favicon.ico",
+                    "/logo192.png",
+                    "/logo512.png",
+                    "/static/**"
+                ).permitAll()
+                // ✅ Allow open access to token & register endpoints
+                .requestMatchers("/auth/token", "/auth/register").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/employees/**").permitAll()
                 .anyRequest().authenticated()
             )
-            .httpBasic(Customizer.withDefaults()) // use Basic Auth for /auth/token
-            .formLogin(form -> form.disable());   // ✅ disable default login redirect
+            .oauth2ResourceServer(oauth2 -> oauth2
+                .jwt(jwt -> jwt
+                    .jwtAuthenticationConverter(jwtAuthenticationConverter())  // 👈 Your custom converter
+                )
+            )
+            .formLogin(form -> form.disable()) // no form login
+            .httpBasic(Customizer.withDefaults()); // enable basic auth for /auth/token if needed
+
+            
+            //.httpBasic(Customizer.withDefaults()) // use Basic Auth for /auth/token
+            //.formLogin(form -> form.disable());   // ✅ disable default login redirect
 
         return http.build();
     }
-
-
 
     @Bean
     public JwtDecoder jwtDecoder(ResourceLoader resourceLoader) throws Exception {
@@ -175,17 +140,18 @@ public class SecurityConfig {
         }
     }
 
-    @Bean
-    public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
-        UserDetails user = User.builder()
-                .username("anil")
-                .password(passwordEncoder.encode("mysecret123"))
-                .roles("USER")
-                .build();
-        System.out.println("user:::"+user);
+    // @Bean
+    // public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
+    //     UserDetails user = User.builder()
+    //             .username("anil")
+    //             .password(passwordEncoder.encode("mysecret123"))
+    //             .roles("ADMIN")
+    //             .build();
 
-        return new InMemoryUserDetailsManager(user);
-    }
+    //     System.out.println("user:::"+user);
+
+    //     return new InMemoryUserDetailsManager(user);
+    // }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -196,5 +162,17 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
+
+    @Bean
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
+        grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
+        grantedAuthoritiesConverter.setAuthoritiesClaimName("roles");
+
+        JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();
+        jwtConverter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
+        return jwtConverter;
+    }
+
 
 }
