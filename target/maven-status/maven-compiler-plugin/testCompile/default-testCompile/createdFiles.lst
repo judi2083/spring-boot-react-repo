@@ -1,1 +1,3 @@
 com/example/springboot/config/TestSecurityConfig.class
+com/example/springboot/controller/UserControllerTest.class
+com/example/springboot/controller/EmployeeControllerTest.class

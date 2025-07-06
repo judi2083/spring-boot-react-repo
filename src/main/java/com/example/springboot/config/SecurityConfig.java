@@ -69,6 +69,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 import java.io.InputStream;
 import java.security.KeyFactory;
@@ -86,42 +87,37 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    // ✅ Let Spring auto-inject the existing bean from WebConfig
+    private final CorsConfigurationSource corsConfigurationSource;
+
+    public SecurityConfig(CorsConfigurationSource corsConfigurationSource) {
+        this.corsConfigurationSource = corsConfigurationSource;
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                 // 👇 Allow public frontend assets
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(
-                    "/",
-                    "/index.html",
-                    "/manifest.json",
-                    "/favicon.ico",
-                    "/logo192.png",
-                    "/logo512.png",
-                    "/static/**"
+                    "/", "/index.html", "/manifest.json", "/favicon.ico",
+                    "/logo192.png", "/logo512.png", "/static/**"
                 ).permitAll()
-                // ✅ Allow open access to token & register endpoints
-                .requestMatchers("/auth/token", "/auth/register").permitAll()
+                .requestMatchers("/auth/token", "/auth/register", "/auth/forgot-password", "/auth/reset-password").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/employees/**").permitAll()
                 .anyRequest().authenticated()
             )
+            .cors(cors -> cors.configurationSource(corsConfigurationSource)) // ✅ Use injected bean
+            .csrf(csrf -> csrf.disable())
             .oauth2ResourceServer(oauth2 -> oauth2
-                .jwt(jwt -> jwt
-                    .jwtAuthenticationConverter(jwtAuthenticationConverter())  // 👈 Your custom converter
-                )
+                .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
             )
-            .formLogin(form -> form.disable()) // no form login
-            .httpBasic(Customizer.withDefaults()); // enable basic auth for /auth/token if needed
-
-            
-            //.httpBasic(Customizer.withDefaults()) // use Basic Auth for /auth/token
-            //.formLogin(form -> form.disable());   // ✅ disable default login redirect
+            .formLogin(form -> form.disable())
+            .httpBasic(Customizer.withDefaults());
 
         return http.build();
     }
-
     @Bean
     public JwtDecoder jwtDecoder(ResourceLoader resourceLoader) throws Exception {
         Resource resource = resourceLoader.getResource("classpath:public.key");

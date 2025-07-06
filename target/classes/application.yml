@@ -23,12 +23,26 @@ spring:
     banner-mode: "console"
     allow-bean-definition-overriding: true
 
-  # Login Credentials
   security:
     user:
       name: anil
       password: mysecret123
       roles: ADMIN
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+    from:
+      name: ${MAIL_FROM_NAME}
+      email: ${MAIL_FROM_EMAIL}
 
 # ===============================
 # =       ACTUATOR CONFIG      =
@@ -61,6 +75,13 @@ logging:
     root: INFO
     org.springframework.web: DEBUG
     com.example: DEBUG
+
+    # Add these for mail debugging
+    org.springframework.mail: DEBUG
+    org.springframework.boot.autoconfigure.mail: DEBUG
+    org.apache.commons.net.smtp: DEBUG
+    javax.mail: DEBUG
+    
   file:
     name: logs/app.log
   pattern:
@@ -70,13 +91,12 @@ logging:
 # ===============================
 # =       SWAGGER CONFIG       =
 # ===============================
-  springdoc:
-   api-docs:
-     path: /v3/api-docs
-   swagger-ui:
-     path: /swagger-ui.html
-     enabled: true
-
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
 
 # ===============================
 # =       CUSTOM PROPERTIES    =
@@ -84,6 +104,4 @@ logging:
 custom:
   app:
     version: 1.0.0
-    maintainer: Anil Kumar
-
-
+    maintainer: Anil Kumar Shrivastava
